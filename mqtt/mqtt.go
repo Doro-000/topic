@@ -15,6 +15,7 @@ const (
 	RESERVED_PACKET_TYPE MQTTControlPacketType = iota
 	CONNECT
 	CONNACK
+	PUBLISH
 	PUBACK
 	PUBREC  // Publish received
 	PUBREL  // Publish release
@@ -26,6 +27,7 @@ const (
 	PINGREQ
 	PINGRESP
 	DISCONNECT
+	RESERVED_PACKET_TYPE_2
 )
 
 const (
@@ -52,7 +54,7 @@ type GenericPacket interface {
 func UnmarshallMqttHeader(value byte) (*MqttHeader, error) {
 	packetType := MQTTControlPacketType(value >> 4)
 
-	if packetType == RESERVED_PACKET_TYPE {
+	if packetType == RESERVED_PACKET_TYPE || packetType == RESERVED_PACKET_TYPE_2 {
 		return nil, fmt.Errorf("Packet Type %v not allowed", packetType)
 	}
 
@@ -80,7 +82,7 @@ func NewMqttHeader(packetType MQTTControlPacketType, retain bool, qos QoSLevel, 
 		value |= 8
 	}
 
-	if packetType == RESERVED_PACKET_TYPE {
+	if packetType == RESERVED_PACKET_TYPE || packetType == RESERVED_PACKET_TYPE_2 {
 		return nil, fmt.Errorf("Packet Type %v not allowed", packetType)
 	}
 
@@ -95,8 +97,8 @@ func (h *MqttHeader) GetRetain() bool {
 }
 
 // 1st and 2nd bits
-func (h *MqttHeader) GetQos() byte {
-	return h.Value & 0x03
+func (h *MqttHeader) GetQos() QoSLevel {
+	return QoSLevel(h.Value & 0x03)
 }
 
 // 3rd bit

@@ -38,17 +38,17 @@ func (packet *Unmarshall) Uint16() uint16 {
 	return binary.BigEndian.Uint16(res)
 }
 
-func (packet *Unmarshall) String() string {
+func (packet *Unmarshall) String() (string, int) {
 	if packet.err != nil {
-		return ""
+		return "", 0
 	}
 
 	strLength := packet.Uint16()
 	if packet.err != nil {
-		return ""
+		return "", 0
 	}
 
 	str := make([]byte, strLength)
 	_, packet.err = io.ReadFull(packet.buffer, str)
-	return string(str)
+	return string(str), int(strLength) + 2 // 2 bytes for the len
 }
