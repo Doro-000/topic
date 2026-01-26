@@ -14,41 +14,61 @@ func NewUnmarshall(r io.Reader) *Unmarshall {
 	return &Unmarshall{buffer: r}
 }
 
-func (packet *Unmarshall) Error() error {
-	return packet.err
+func (u *Unmarshall) Error() error {
+	return u.err
 }
 
-func (packet *Unmarshall) Uint8() uint8 {
-	if packet.err != nil {
+func (u *Unmarshall) ReadBytes(n int) []byte {
+	if u.err != nil {
+		return []byte{}
+	}
+
+	buf := make([]byte, n)
+	_, u.err = u.buffer.Read(buf)
+	return buf
+}
+
+func (u *Unmarshall) ReadByte() (byte, error) {
+	if u.err != nil {
+		return 0, u.Error()
+	}
+
+	val := make([]byte, 1)
+	_, err := u.buffer.Read(val)
+	if err != nil {
+		u.err = err
+	}
+
+	return val[0], u.err
+}
+
+func (u *Unmarshall) ReadUint16() uint16 {
+	if u.err != nil {
 		return 0
 	}
 
-	res := make([]byte, 1)
-	_, packet.err = io.ReadFull(packet.buffer, res)
-	return res[0]
-}
-
-func (packet *Unmarshall) Uint16() uint16 {
-	if packet.err != nil {
+	buf := u.ReadBytes(2)
+	if u.err != nil {
 		return 0
 	}
 
-	res := make([]byte, 2)
-	_, packet.err = io.ReadFull(packet.buffer, res)
-	return binary.BigEndian.Uint16(res)
+	return binary.BigEndian.Uint16(buf)
 }
 
-func (packet *Unmarshall) String() (string, int) {
-	if packet.err != nil {
+func (u *Unmarshall) ReadString() (string, int) {
+	if u.err != nil {
 		return "", 0
 	}
 
-	strLength := packet.Uint16()
-	if packet.err != nil {
+	strLength := u.ReadUint16()
+	if u.err != nil {
 		return "", 0
 	}
 
-	str := make([]byte, strLength)
-	_, packet.err = io.ReadFull(packet.buffer, str)
-	return string(str), int(strLength) + 2 // 2 bytes for the len
+	buf := u.ReadBytes(int(strLength))
+	if u.err != nil {
+		return "", 0
+	}
+
+	return string(buf), int(strLength) + 2 // 2 bytes for the len
 }

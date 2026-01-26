@@ -1,27 +1,59 @@
 package mqtt
 
 import (
-	"fmt"
+	"encoding/binary"
+	"io"
 )
 
-func MarshallMqttPacket(packet GenericPacket) ([]byte, error) {
-	payload := packet.GetPayload()
-	varHeader := packet.GetVariableHeader()
+type Marshall struct {
+	buffer io.Writer
+	err    error
+}
 
-	varHeaderAndPayloadLength := len(payload) + len(varHeader)
-	remainingLength := EncodeRemainingLength(varHeaderAndPayloadLength)
+func NewMarshall(w io.Writer) *Marshall {
+	return &Marshall{buffer: w}
+}
 
-	packetSize := 1 + len(remainingLength) + varHeaderAndPayloadLength
-	buf := make([]byte, 0, packetSize)
+func (e *Marshall) Error() error {
+	return e.err
+}
 
-	buf = append(buf, packet.GetHeader())
-	buf = append(buf, remainingLength...)
-	buf = append(buf, varHeader...)
-	buf = append(buf, payload...)
-
-	if len(buf) != packetSize {
-		return []byte{}, fmt.Errorf("Expected packet size: %v, got: %v", packetSize, len(buf))
+func (e *Marshall) WriteBytes(bytes []byte) {
+	if e.err != nil {
+		return
 	}
 
-	return buf, nil
+	_, e.err = e.buffer.Write(bytes)
+}
+
+func (e *Marshall) WriteByte(val byte) error {
+	if e.err != nil {
+		return e.err
+	}
+
+	_, e.err = e.buffer.Write([]byte{val})
+	return e.err
+}
+
+func (e *Marshall) WriteUint16(val uint16) {
+	if e.err != nil {
+		return
+	}
+	buf := make([]byte, 0, 2)
+	e.WriteBytes(binary.BigEndian.AppendUint16(buf, val))
+}
+
+func (e *Marshall) WriteString(str string) {
+	if e.err != nil {
+		return
+	}
+
+	strLen := uint16(len(str))
+	e.WriteUint16(strLen)
+
+	if e.err != nil {
+		return
+	}
+
+	e.WriteBytes([]byte(str))
 }
