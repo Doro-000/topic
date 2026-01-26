@@ -1,51 +1,38 @@
-package publish_test
+package mqtt_test
 
 import (
 	"bytes"
 	"testing"
 
-	BaseMqtt "github.com/Doro-000/topic/mqtt"
-	Publish "github.com/Doro-000/topic/mqtt/publish"
+	"github.com/Doro-000/topic/mqtt"
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestMarshallUnmarshall(t *testing.T) {
+func Test_Publish_MarshallUnmarshall(t *testing.T) {
 	// Arrange
-	header, err := BaseMqtt.NewMqttHeader(BaseMqtt.PUBLISH, false, 1, false)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	packet := Publish.MqttPublish{
-		Header:           *header,
-		TopicName:        "test/topic",
-		PacketIdentifier: []byte{0, 2},
-		Payload:          []byte("testing"),
+	packet := mqtt.MqttPublish{
+		TopicName: "a/b",
+		Payload:   []byte("hello world"),
 	}
 
 	// Act
-	buf, err := BaseMqtt.MarshallMqttPacket(&packet)
+	var encodedPacket bytes.Buffer
+	marshaller := mqtt.NewMarshall(&encodedPacket)
+	err := packet.Marshall(marshaller)
 	if err != nil {
-		t.Fatalf("%s", err.Error())
+		t.Fatalf("Failed to marshall packet: %s", err)
+	}
+
+	unmarshaller := mqtt.NewUnmarshall(&encodedPacket)
+	// The unmarshaller needs the header context to decode correctly
+	decodedPacket := mqtt.MqttPublish{Header: packet.Header}
+	err = decodedPacket.Unmarshall(unmarshaller)
+	if err != nil {
+		t.Fatalf("Failed to unmarshall packet: %s", err)
 	}
 
 	// Assert
-	incomingPacket := bytes.NewBuffer(buf)
-	headerByte, err := incomingPacket.ReadByte()
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-	unmarshalledHeader, err := BaseMqtt.UnmarshallMqttHeader(headerByte)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	unmarshalledPacket, err := Publish.UnmarshallMqttPublish(*unmarshalledHeader, incomingPacket)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	if !cmp.Equal(*unmarshalledPacket, packet) {
-		t.Fail()
+	if !cmp.Equal(decodedPacket, packet) {
+		t.Errorf("Packet mismatch after round trip (-want +got):\n%s", cmp.Diff(packet, decodedPacket))
 	}
 }

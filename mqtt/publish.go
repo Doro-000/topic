@@ -1,83 +1,42 @@
-package publish
+package mqtt
 
-import (
-	"bytes"
-	"encoding/binary"
-	"fmt"
-	"io"
-
-	BaseMqtt "github.com/Doro-000/topic/mqtt"
-)
+import "io"
 
 type MqttPublish struct {
-	Header           BaseMqtt.MqttHeader
+	Header           MqttHeader
 	TopicName        string
-	PacketIdentifier []byte
+	PacketIdentifier uint16
 	Payload          []byte
 }
 
-// implement generic packet functions
-func (packet *MqttPublish) GetHeader() byte {
-	return packet.Header.Value
+func (packet *MqttPublish) Marshall(marshaller *Marshall) error {
+	marshaller.WriteString(packet.TopicName)
+
+	if packet.Header.Qos == AT_LEAST_ONCE || packet.Header.Qos == EXACTLY_ONCE {
+		marshaller.WriteUint16(packet.PacketIdentifier)
+	}
+
+	marshaller.WriteBytes(packet.Payload)
+
+	return marshaller.Error()
 }
 
-func (packet *MqttPublish) GetVariableHeader() []byte {
-	topicNameLen := []byte{}
-	topicNameLen = binary.BigEndian.AppendUint16(topicNameLen, uint16(len(packet.TopicName)))
+func (packet *MqttPublish) Unmarshall(unmarshaller *Unmarshall) error {
+	packet.TopicName, _ = unmarshaller.ReadString()
 
-	res := []byte{}
-	res = append(res, topicNameLen...)
-	res = append(res, []byte(packet.TopicName)...)
-	res = append(res, packet.PacketIdentifier...)
-
-	return res
-}
-
-func (packet *MqttPublish) GetPayload() []byte {
-	return packet.Payload
-}
-
-// implement unmarshalling function
-func UnmarshallMqttPublish(header BaseMqtt.MqttHeader, packet io.Reader) (*MqttPublish, error) {
-	if header.GetType() != BaseMqtt.PUBLISH {
-		return nil, fmt.Errorf("Called Connect unmarshall on packet type: %v", header.GetType())
+	if packet.Header.Qos == AT_LEAST_ONCE || packet.Header.Qos == EXACTLY_ONCE {
+		packet.PacketIdentifier = unmarshaller.ReadUint16()
 	}
 
-	res := MqttPublish{Header: header}
-
-	// decode remaining length
-	len, err := BaseMqtt.DecodeRemainingLen(packet)
-
+	// The rest is payload
+	// We need to know the total length of the variable header + payload
+	// This should be handled by the main decode loop, which should use an io.LimitedReader
+	// For now, we assume the unmarshaller's buffer is already limited.
+	payload, err := io.ReadAll(unmarshaller.buffer)
 	if err != nil {
-		return nil, err
+		unmarshaller.err = err
 	}
+	packet.Payload = payload
 
-	remainingPacket := make([]byte, len)
-	_, err = io.ReadFull(packet, remainingPacket)
-
-	if err != nil {
-		return nil, err
-	}
-
-	varHeaderAndPayload := bytes.NewReader(remainingPacket)
-	packetUnmarshall := BaseMqtt.NewUnmarshall(varHeaderAndPayload)
-
-	topicName, payloadLen := packetUnmarshall.String()
-	res.TopicName = topicName
-
-	qosLevel := header.GetQos()
-	if qosLevel == BaseMqtt.AT_LEAST_ONCE || qosLevel == BaseMqtt.EXACTLY_ONCE {
-		res.PacketIdentifier = []byte{packetUnmarshall.Uint8(), packetUnmarshall.Uint8()}
-		payloadLen += 2
-	}
-
-	payload := make([]byte, len-payloadLen)
-	_, err = io.ReadFull(varHeaderAndPayload, payload)
-	if err != nil {
-		return nil, err
-	}
-
-	res.Payload = payload
-
-	return &res, nil
+	return unmarshaller.Error()
 }

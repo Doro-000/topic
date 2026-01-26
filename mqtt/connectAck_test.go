@@ -1,49 +1,37 @@
-package connectack_test
+package mqtt_test
 
 import (
 	"bytes"
 	"testing"
 
-	BaseMqtt "github.com/Doro-000/topic/mqtt"
-	ConnectAck "github.com/Doro-000/topic/mqtt/connectAck"
+	"github.com/Doro-000/topic/mqtt"
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestMarshallUnmarshall(t *testing.T) {
+func Test_ConnectAck_MarshallUnmarshall(t *testing.T) {
 	// Arrange
-	header, err := BaseMqtt.NewMqttHeader(BaseMqtt.CONNACK, false, 0, false)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	packet, err := ConnectAck.NewMqttConnectAck(*header, false, ConnectAck.BAD_PROTO_V)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
+	packet := mqtt.MqttConnectAck{
+		SessionPresent: true,
+		ReturnCode:     mqtt.ACCEPTED, // Connection Accepted
 	}
 
 	// Act
-	buf, err := BaseMqtt.MarshallMqttPacket(packet)
+	var encodedPacket bytes.Buffer
+	marshaller := mqtt.NewMarshall(&encodedPacket)
+	err := packet.Marshall(marshaller)
 	if err != nil {
-		t.Fatalf("%s", err.Error())
+		t.Fatalf("Failed to marshall packet: %s", err)
+	}
+
+	unmarshaller := mqtt.NewUnmarshall(&encodedPacket)
+	decodedPacket := mqtt.MqttConnectAck{}
+	err = decodedPacket.Unmarshall(unmarshaller)
+	if err != nil {
+		t.Fatalf("Failed to unmarshall packet: %s", err)
 	}
 
 	// Assert
-	incomingPacket := bytes.NewBuffer(buf)
-	headerByte, err := incomingPacket.ReadByte()
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-	unmarshalledHeader, err := BaseMqtt.UnmarshallMqttHeader(headerByte)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	unmarshalledPacket, err := ConnectAck.UnmarshallMqttConnectAck(*unmarshalledHeader, incomingPacket)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	if !cmp.Equal(*unmarshalledPacket, *packet) {
-		t.Fail()
+	if !cmp.Equal(decodedPacket, packet) {
+		t.Errorf("Packet mismatch after round trip (-want +got):\n%s", cmp.Diff(packet, decodedPacket))
 	}
 }

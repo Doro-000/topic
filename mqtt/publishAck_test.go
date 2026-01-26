@@ -34,6 +34,6 @@ func Test_publishAck_MarshallUnmarshall(t *testing.T) {
 
 	// Assert
 	if !cmp.Equal(decodedPacket, packet) {
-		t.Fail()
+		t.Errorf("Packet mismatch after round trip (-want +got):\n%s", cmp.Diff(packet, decodedPacket))
 	}
 }

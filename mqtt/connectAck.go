@@ -1,18 +1,13 @@
-package connectack
+package mqtt
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"io"
-
-	BaseMqtt "github.com/Doro-000/topic/mqtt"
 )
 
-type MqttConnAckCodes byte
+type MqttConnAckCode byte
 
 const (
-	ACCEPTED MqttConnAckCodes = iota
+	ACCEPTED MqttConnAckCode = iota
 	BAD_PROTO_V
 	ID_REJECTED
 	SERVER_DED
@@ -21,84 +16,45 @@ const (
 )
 
 type MqttConnectAck struct {
-	Header         BaseMqtt.MqttHeader
+	Header         MqttHeader
 	SessionPresent bool
-	ReturnCode     MqttConnAckCodes
+	ReturnCode     MqttConnAckCode
 }
 
-func (packet *MqttConnectAck) GetHeader() byte {
-	return packet.Header.Value
+func (ack *MqttConnectAck) Marshall(marshaller *Marshall) error {
+	var sp byte
+	if ack.SessionPresent {
+		sp = 1
+	}
+	marshaller.WriteByte(sp)
+	marshaller.WriteByte(byte(ack.ReturnCode))
+
+	return marshaller.Error()
 }
 
-func (packet *MqttConnectAck) GetVariableHeader() []byte {
-	var flag byte
-
-	if packet.SessionPresent {
-		flag = 1
-	} else {
-		flag = 0
+func (ack *MqttConnectAck) Unmarshall(unmarshaller *Unmarshall) error {
+	sp, _ := unmarshaller.ReadByte()
+	if unmarshaller.Error() != nil {
+		return unmarshaller.Error()
 	}
 
-	return []byte{flag, byte(packet.ReturnCode)}
-}
-
-func (packet *MqttConnectAck) GetPayload() []byte {
-	return []byte{}
-}
-
-func UnmarshallMqttConnectAck(header BaseMqtt.MqttHeader, packet io.Reader) (*MqttConnectAck, error) {
-	if header.GetType() != BaseMqtt.CONNACK {
-		return nil, fmt.Errorf("Called ConnectAck unmarshall on packet type: %v", header.GetType())
+	// Validate that reserved bits (1-7) are 0
+	if (sp & 0xFE) != 0 {
+		return fmt.Errorf("malformed connack packet: reserved bits of acknowledge flags must be 0")
 	}
 
-	// decode remaining length
-	len, err := BaseMqtt.DecodeRemainingLen(packet)
+	ack.SessionPresent = (sp & 0x01) == 1
 
-	if err != nil {
-		return nil, err
+	returnCode, _ := unmarshaller.ReadByte()
+	if unmarshaller.Error() != nil {
+		return unmarshaller.Error()
+	}
+	ack.ReturnCode = MqttConnAckCode(returnCode)
+
+	// Validate the return code
+	if ack.ReturnCode > NOT_AUTHORIZED {
+		return fmt.Errorf("malformed connack packet: invalid return code %d", ack.ReturnCode)
 	}
 
-	remainingPacket := make([]byte, len)
-	_, err = io.ReadFull(packet, remainingPacket)
-
-	if err != nil {
-		return nil, err
-	}
-
-	varHeaderAndPayload := bytes.NewReader(remainingPacket)
-	packetUnmarshall := BaseMqtt.NewUnmarshall(varHeaderAndPayload)
-
-	sessionPresentVal := packetUnmarshall.Uint8()
-	returnCode := MqttConnAckCodes(packetUnmarshall.Uint8())
-
-	if packetUnmarshall.Error() != nil {
-		return nil, packetUnmarshall.Error()
-	}
-
-	if sessionPresentVal > 1 {
-		return nil, errors.New("Invalid connect acknowledge flag")
-	}
-
-	var sessionPresent bool = false
-	if sessionPresentVal == 1 {
-		sessionPresent = true
-	}
-
-	return &MqttConnectAck{
-		Header:         header,
-		SessionPresent: sessionPresent,
-		ReturnCode:     returnCode,
-	}, nil
-}
-
-func NewMqttConnectAck(header BaseMqtt.MqttHeader, sessionPresent bool, returnCode MqttConnAckCodes) (*MqttConnectAck, error) {
-	if header.GetType() != BaseMqtt.CONNACK {
-		return nil, fmt.Errorf("Wrong header type [%v] used to initalize connectAck struct", header.GetType())
-	}
-
-	return &MqttConnectAck{
-		Header:         header,
-		SessionPresent: sessionPresent,
-		ReturnCode:     returnCode,
-	}, nil
+	return nil
 }
