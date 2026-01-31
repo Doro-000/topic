@@ -28,9 +28,9 @@ func (u *Unmarshall) ReadBytes(n int) []byte {
 	return buf
 }
 
-func (u *Unmarshall) ReadByte() (byte, error) {
+func (u *Unmarshall) ReadByte() byte {
 	if u.err != nil {
-		return 0, u.Error()
+		return 0
 	}
 
 	val := make([]byte, 1)
@@ -39,7 +39,7 @@ func (u *Unmarshall) ReadByte() (byte, error) {
 		u.err = err
 	}
 
-	return val[0], u.err
+	return val[0]
 }
 
 func (u *Unmarshall) ReadUint16() uint16 {
@@ -55,20 +55,20 @@ func (u *Unmarshall) ReadUint16() uint16 {
 	return binary.BigEndian.Uint16(buf)
 }
 
-func (u *Unmarshall) ReadString() (string, int) {
+func (u *Unmarshall) ReadString() string {
 	if u.err != nil {
-		return "", 0
+		return ""
 	}
 
 	strLength := u.ReadUint16()
 	if u.err != nil {
-		return "", 0
+		return ""
 	}
 
 	buf := u.ReadBytes(int(strLength))
 	if u.err != nil {
-		return "", 0
+		return ""
 	}
 
-	return string(buf), int(strLength) + 2 // 2 bytes for the len
+	return string(buf)
 }

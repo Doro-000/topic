@@ -16,12 +16,19 @@ const (
 )
 
 type MqttConnectAck struct {
-	Header         MqttHeader
+	MqttHeader
 	SessionPresent bool
 	ReturnCode     MqttConnAckCode
 }
 
 func (ack *MqttConnectAck) Marshall(marshaller *Marshall) error {
+	/** Header */
+	ack.MqttHeader.Marshall(marshaller)
+
+	/** Remaining length, connAck is always 2 */
+	marshaller.WriteByte(0x02)
+
+	/** Variable Header */
 	var sp byte
 	if ack.SessionPresent {
 		sp = 1
@@ -33,7 +40,8 @@ func (ack *MqttConnectAck) Marshall(marshaller *Marshall) error {
 }
 
 func (ack *MqttConnectAck) Unmarshall(unmarshaller *Unmarshall) error {
-	sp, _ := unmarshaller.ReadByte()
+	sp := unmarshaller.ReadByte()
+
 	if unmarshaller.Error() != nil {
 		return unmarshaller.Error()
 	}
@@ -44,12 +52,11 @@ func (ack *MqttConnectAck) Unmarshall(unmarshaller *Unmarshall) error {
 	}
 
 	ack.SessionPresent = (sp & 0x01) == 1
+	ack.ReturnCode = MqttConnAckCode(unmarshaller.ReadByte())
 
-	returnCode, _ := unmarshaller.ReadByte()
 	if unmarshaller.Error() != nil {
 		return unmarshaller.Error()
 	}
-	ack.ReturnCode = MqttConnAckCode(returnCode)
 
 	// Validate the return code
 	if ack.ReturnCode > NOT_AUTHORIZED {
