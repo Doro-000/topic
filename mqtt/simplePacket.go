@@ -27,3 +27,31 @@ func (p *MqttSimplePacket) Unmarshall(unmarshaller *Unmarshall) error {
 
 	return unmarshaller.Error()
 }
+
+func (packet *MqttSimplePacket) GetType() MQTTControlPacketType {
+	return packet.MqttHeader.PacketType
+}
+
+/*
+Represents packets with just a header:
+  - DISCONNECT
+  - PINGREQ
+  - PINGRESP
+*/
+type MqttHeaderOnlyPacket struct {
+	MqttHeader
+}
+
+func (p *MqttHeaderOnlyPacket) Marshall(marshaller *Marshall) error {
+	p.MqttHeader.Marshall(marshaller)
+	marshaller.WriteByte(0x00)
+	return marshaller.Error()
+}
+
+func (p *MqttHeaderOnlyPacket) Unmarshall(unmarshaller *Unmarshall) error {
+	return nil
+}
+
+func (packet *MqttHeaderOnlyPacket) GetType() MQTTControlPacketType {
+	return packet.MqttHeader.PacketType
+}

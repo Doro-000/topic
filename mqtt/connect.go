@@ -191,3 +191,7 @@ func (packet *MqttConnect) Unmarshall(unmarshaller *Unmarshall) error {
 
 	return unmarshaller.Error()
 }
+
+func (packet *MqttConnect) GetType() MQTTControlPacketType {
+	return CONNECT
+}

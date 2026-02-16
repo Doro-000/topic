@@ -40,3 +40,7 @@ func (packet *MqttUnsubscribe) Unmarshall(unmarshaller *Unmarshall) error {
 
 	return unmarshaller.Error()
 }
+
+func (packet *MqttUnsubscribe) GetType() MQTTControlPacketType {
+	return UNSUBSCRIBE
+}

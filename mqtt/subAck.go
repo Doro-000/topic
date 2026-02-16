@@ -12,6 +12,7 @@ const (
 )
 
 type MqttSubAck struct {
+	MqttHeader
 	PacketIdentifier uint16
 	payload          []MqttSubAckCode
 }
@@ -36,4 +37,8 @@ func (ack *MqttSubAck) Unmarshall(unmarshaller *Unmarshall) error {
 	}
 
 	return unmarshaller.Error()
+}
+
+func (packet *MqttSubAck) GetType() MQTTControlPacketType {
+	return SUBACK
 }

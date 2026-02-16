@@ -40,4 +40,5 @@ type GenericPacket interface {
 	// TODO: marshall header separately
 	Marshall(e *Marshall) error
 	Unmarshall(u *Unmarshall) error
+	GetType() MQTTControlPacketType
 }

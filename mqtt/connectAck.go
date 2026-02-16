@@ -65,3 +65,7 @@ func (ack *MqttConnectAck) Unmarshall(unmarshaller *Unmarshall) error {
 
 	return nil
 }
+
+func (packet *MqttConnectAck) GetType() MQTTControlPacketType {
+	return CONNACK
+}

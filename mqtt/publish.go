@@ -46,3 +46,7 @@ func (packet *MqttPublish) Unmarshall(unmarshaller *Unmarshall) error {
 
 	return unmarshaller.Error()
 }
+
+func (packet *MqttPublish) GetType() MQTTControlPacketType {
+	return PUBLISH
+}

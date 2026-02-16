@@ -63,3 +63,7 @@ func (packet *MqttSubscribe) Unmarshall(unmarshaller *Unmarshall) error {
 
 	return unmarshaller.Error()
 }
+
+func (packet *MqttSubscribe) GetType() MQTTControlPacketType {
+	return SUBSCRIBE
+}
