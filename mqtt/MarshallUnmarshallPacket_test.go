@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/Doro-000/topic/mqtt"
 	Mqtt "github.com/Doro-000/topic/mqtt"
 	"github.com/google/go-cmp/cmp"
 )
@@ -24,8 +25,8 @@ var tests TestCases = TestCases{
 	Mqtt.PUBREC:      pubRec_test_cases,
 	Mqtt.PUBREL:      pubRel_test_cases,
 	Mqtt.PUBCOMP:     pubComp_test_cases,
-	Mqtt.SUBSCRIBE:   nil,
-	Mqtt.SUBACK:      nil,
+	Mqtt.SUBSCRIBE:   subscribe_test_cases,
+	Mqtt.SUBACK:      subscribeAck_test_cases,
 	Mqtt.UNSUBSCRIBE: nil,
 	Mqtt.UNSUBACK:    unsubAck_test_cases,
 	Mqtt.PINGREQ:     nil,
@@ -96,6 +97,14 @@ func packetFactory(packetType Mqtt.MQTTControlPacketType, header *Mqtt.MqttHeade
 		}
 	case Mqtt.PUBLISH:
 		return &Mqtt.MqttPublish{
+			MqttHeader: *header,
+		}
+	case mqtt.SUBSCRIBE:
+		return &Mqtt.MqttSubscribe{
+			MqttHeader: *header,
+		}
+	case mqtt.SUBACK:
+		return &Mqtt.MqttSubAck{
 			MqttHeader: *header,
 		}
 	case Mqtt.PUBACK, Mqtt.PUBREC, Mqtt.PUBREL, Mqtt.PUBCOMP, Mqtt.UNSUBACK:

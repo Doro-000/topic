@@ -4,12 +4,19 @@ import (
 	"fmt"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
-	"github.com/Doro-000/topic/topicnetworking"
+	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
-func DisconnectHandler(packet mqtt.GenericPacket, connection topicConnection) error {
-	fmt.Printf("Disconnecting client: %s\n", connection.(*topicnetworking.TcpConnection).Client.ClientID)
+func DisconnectHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+	fmt.Printf("Disconnecting client: %s\n", connection.(*topicNetworking.TcpConnection).Client.TransportId)
+
+	clientData := connection.GetClientData()
+	session := handlerInput.sessionStore.Get(clientData.TransportId)
+
 	err := connection.Close()
+	session.Connection = nil
+	clientData.DisconnectChan <- true
+	clientData.KeepAliveTimer.Stop()
 
 	return err
 }

@@ -9,6 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type TcpConnection struct {
+	Client   ClientData
+	ClientFD int
+	PacketBuffer
+}
+
 func (listener *TcpListener) Accept() (int, ClientData, error) {
 	clientFD, client, err := syscall.Accept(listener.SockFD)
 	if err != nil {
@@ -18,13 +24,16 @@ func (listener *TcpListener) Accept() (int, ClientData, error) {
 	clientData := ClientData{
 		ConnectionType: RAW_TCP,
 		ConnectedAt:    time.Now(),
+		Connected:      false,
+		TimerValue:     DEFAULT_CLIENT_TIMEOUT,
+		DisconnectChan: make(chan bool),
 	}
 
 	if addr, ok := client.(*syscall.SockaddrInet4); ok {
 		clientData.RawAddr = *addr
 		clientData.RemoteAddress = fmt.Sprintf("%d.%d.%d.%d", addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3])
 		clientData.LocalAddress = fmt.Sprintf("%d", addr.Port)
-		clientData.ClientID = uuid.New().String()
+		clientData.TransportId = uuid.New().String()
 	}
 
 	fmt.Printf("Accepted Connection: %v\n", clientData)
@@ -130,6 +139,10 @@ func (conn *TcpConnection) Write(p []byte) (int, error) {
 
 func (conn *TcpConnection) Close() error {
 	return syscall.Close(conn.ClientFD)
+}
+
+func (conn *TcpConnection) GetClientData() *ClientData {
+	return &conn.Client
 }
 
 func NewTcpConnection(clientFd int, client ClientData) *TcpConnection {

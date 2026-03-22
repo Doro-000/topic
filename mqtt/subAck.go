@@ -14,13 +14,17 @@ const (
 type MqttSubAck struct {
 	MqttHeader
 	PacketIdentifier uint16
-	payload          []MqttSubAckCode
+	Payload          []MqttSubAckCode
 }
 
 func (ack *MqttSubAck) Marshall(marshaller *Marshall) error {
+	ack.MqttHeader.Marshall(marshaller)
+
+	remainingLen := EncodeRemainingLength(2 + len(ack.Payload))
+	marshaller.WriteBytes(remainingLen)
 	marshaller.WriteUint16(ack.PacketIdentifier)
 
-	for _, code := range ack.payload {
+	for _, code := range ack.Payload {
 		marshaller.WriteByte(byte(code))
 	}
 
@@ -33,7 +37,7 @@ func (ack *MqttSubAck) Unmarshall(unmarshaller *Unmarshall) error {
 	codes, _ := io.ReadAll(unmarshaller.buffer)
 
 	for _, code := range codes {
-		ack.payload = append(ack.payload, MqttSubAckCode(code))
+		ack.Payload = append(ack.Payload, MqttSubAckCode(code))
 	}
 
 	return unmarshaller.Error()

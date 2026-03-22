@@ -3,7 +3,6 @@ package mqtt
 import (
 	"fmt"
 	"io"
-	"maps"
 )
 
 type MqttSubscribe struct {
@@ -14,8 +13,8 @@ type MqttSubscribe struct {
 
 func (packet *MqttSubscribe) getPayloadLen() int {
 	payloadLen := 0
-	for topicFilter := range maps.Keys(packet.Payload) {
-		payloadLen += 1 // 1 byte for the qos level
+	for topicFilter := range packet.Payload {
+		payloadLen += 1 // 2 byte for the qos level
 		payloadLen += 2 + len(topicFilter)
 	}
 
@@ -47,11 +46,12 @@ func (packet *MqttSubscribe) Unmarshall(unmarshaller *Unmarshall) error {
 	packet.Payload = make(map[string]QoSLevel)
 
 	for {
+		topicFilter := unmarshaller.ReadString()
+
 		if unmarshaller.Error() == io.EOF {
 			break
 		}
 
-		topicFilter := unmarshaller.ReadString()
 		topicQos := unmarshaller.ReadByte()
 
 		packet.Payload[topicFilter] = QoSLevel(topicQos)
@@ -61,7 +61,10 @@ func (packet *MqttSubscribe) Unmarshall(unmarshaller *Unmarshall) error {
 		return fmt.Errorf("Subscribe with no payload found !")
 	}
 
-	return unmarshaller.Error()
+	if unmarshaller.Error() != io.EOF {
+		return unmarshaller.Error()
+	}
+	return nil
 }
 
 func (packet *MqttSubscribe) GetType() MQTTControlPacketType {

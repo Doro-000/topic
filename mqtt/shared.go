@@ -34,6 +34,7 @@ const (
 const MQTT_MAX_PACKET_SIZE = 1500 // 64kB
 const MQTT_REMAIN_LEN_MAX = 4     // maximum of 4 bytes for Remaining Length
 const MAX_MULTIPLIER_REMAIN_LEN = 128 * 128 * 128
+const MQTT_KEEP_ALIVE_TIMEOUT_FACTOR = 1.5
 
 type GenericPacket interface {
 	// TODO: add validations to marshalling process

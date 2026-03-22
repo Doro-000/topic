@@ -1,40 +1,78 @@
 package topicrouter
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
+	topicNetworking "github.com/Doro-000/topic/topicnetworking"
+	topicStore "github.com/Doro-000/topic/topicstore"
 )
 
-type topicConnection interface {
-	io.ReadWriteCloser
-	io.ByteReader
+type TopicRouter struct {
+	sessionStore    topicStore.SessionStore
+	topicStore      topicStore.TopicStore
+	handlerRegistry MqttPacketHandlerRegistry
+	mainContext     context.Context
 }
 
-type MqttHandlerFunc = func(mqtt.GenericPacket, topicConnection) error
+type MqttHandlerInput struct {
+	sessionStore topicStore.SessionStore
+	topicStore   topicStore.TopicStore
+}
+
+// TODO: return specific error type
+type MqttHandlerFunc = func(mqtt.GenericPacket, topicNetworking.GenericConnection, MqttHandlerInput) error
 type MqttPacketHandlerRegistry = map[mqtt.MQTTControlPacketType]MqttHandlerFunc
 
-var Registry = MqttPacketHandlerRegistry{
-	mqtt.CONNECT:    ConnectHandler,
-	mqtt.PINGREQ:    PingHandler,
-	mqtt.DISCONNECT: DisconnectHandler,
+func NewTopicRouter(ctx context.Context, sessionStore topicStore.SessionStore, topicStore topicStore.TopicStore) *TopicRouter {
+	return &TopicRouter{
+		sessionStore: sessionStore,
+		topicStore:   topicStore,
+		mainContext:  ctx,
+		handlerRegistry: MqttPacketHandlerRegistry{
+			mqtt.CONNECT:    ConnectHandler,
+			mqtt.PINGREQ:    PingHandler,
+			mqtt.DISCONNECT: DisconnectHandler,
+			mqtt.SUBSCRIBE:  SubscribeHandler,
+			mqtt.PUBLISH:    PublishHandler,
+		},
+	}
 }
 
-func RespondTo(packet mqtt.GenericPacket, connection topicConnection) error {
-	if handler, ok := Registry[packet.GetType()]; ok {
-		err := handler(packet, connection)
+func (router *TopicRouter) RespondTo(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection) error {
+	clientData := connection.GetClientData()
+
+	if handler, ok := router.handlerRegistry[packet.GetType()]; ok {
+		// First packet sent should be CONNECT
+		if clientData.Connected == false && packet.GetType() != mqtt.CONNECT {
+			// TODO: return specific error type
+			return fmt.Errorf("Client sent %s instead of %s", packet.GetType(), mqtt.CONNECT)
+		}
+
+		err := handler(packet, connection, MqttHandlerInput{
+			sessionStore: router.sessionStore,
+			topicStore:   router.topicStore,
+		})
 
 		if err != nil {
 			return err
 		}
+
+		// do we set the keepAliveTimer to nil ?
+		if clientData.KeepAliveTimer != nil {
+			clientData.KeepAliveTimer.Reset(clientData.TimerValue)
+		}
 	} else {
+		connection.Close()
+		clientData.KeepAliveTimer.Stop()
 		return fmt.Errorf("Handler for %s not found!", packet.GetType())
 	}
 	return nil
 }
 
-func Peek(connection topicConnection) (mqtt.GenericPacket, error) {
+func Peek(connection topicNetworking.GenericConnection) (mqtt.GenericPacket, error) {
 	header, err := connection.ReadByte()
 	if err != nil {
 		return nil, err

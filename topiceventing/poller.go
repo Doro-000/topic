@@ -18,6 +18,7 @@ type Callback struct {
 	ErrHandler func(err error)
 }
 
+// TODO: poller is not a correct name here
 type Poller interface {
 	Add(fd int, callBack Callback) error
 	Remove(fd int) error

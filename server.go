@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	topicEventLoop "github.com/Doro-000/topic/topiceventing"
 	topicLog "github.com/Doro-000/topic/topiclog"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 	topicRouter "github.com/Doro-000/topic/topicrouter"
+	topicStore "github.com/Doro-000/topic/topicstore"
 )
 
 func main() {
@@ -17,6 +21,16 @@ func main() {
 
 	// create an event loop
 	eventLoop := topicEventLoop.NewEventLoop(false, 10)
+
+	// create session store
+	sessionStore := topicStore.InitSessionStore()
+
+	// create topic store
+	topicStore := topicStore.InitTopicStore()
+
+	mainContext := context.Background()
+	// create router
+	router := topicRouter.NewTopicRouter(mainContext, sessionStore, topicStore)
 
 	// open a socket for TCP connections
 	tcpListener, err := topicNetworking.NewTcpListener()
@@ -35,6 +49,29 @@ func main() {
 
 		connection := topicNetworking.NewTcpConnection(clientFD, clientData)
 
+		// Disconnect client if they don't send anything for 30sec
+		deadlineContext, signalClientConnected := context.WithTimeout(mainContext, 30*time.Second)
+
+		go func() {
+			<-deadlineContext.Done()
+			switch deadlineContext.Err() {
+			// disconnect client timedout
+			case context.DeadlineExceeded:
+				// close connection
+				connection.Close()
+
+				// remove handler
+				eventLoop.Remove(connection.ClientFD)
+
+				logger.Info(fmt.Sprintf("Client %s disconnected!", clientData.TransportId))
+				logger.Error("Reason: ", errors.New("Timed out before sending packet"))
+			case context.Canceled:
+				// client connected, cancel disconnection and respond to client
+				// logger.Error("stopped: ", context.Cause(deadlineContext))
+			}
+		}()
+
+		// Register handler for this client
 		err = eventLoop.Add(clientFD, topicEventLoop.Callback{
 			Handler: func() error {
 				if clientData.ConnectionType == topicNetworking.RAW_TCP {
@@ -52,7 +89,8 @@ func main() {
 					return err
 				}
 
-				err = topicRouter.RespondTo(mqttPacket, connection)
+				signalClientConnected()
+				err = router.RespondTo(mqttPacket, connection)
 
 				if err != nil {
 					return err
@@ -65,7 +103,7 @@ func main() {
 					// gracefull shutdown
 					connection.Close()
 					eventLoop.Remove(connection.ClientFD)
-					logger.Info(fmt.Sprintf("Client %s disconnected!", clientData.ClientID))
+					logger.Info(fmt.Sprintf("Client %s disconnected!", clientData.TransportId))
 					logger.Error("Reason: ", err)
 				}
 			},
