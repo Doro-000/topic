@@ -36,7 +36,6 @@ func (listener *TcpListener) Accept() (int, ClientData, error) {
 		clientData.TransportId = uuid.New().String()
 	}
 
-	fmt.Printf("Accepted Connection: %v\n", clientData)
 	return clientFD, clientData, nil
 }
 
@@ -123,18 +122,22 @@ func (conn *TcpConnection) ReadByte() (byte, error) {
 }
 
 func (conn *TcpConnection) Write(p []byte) (int, error) {
-	fmt.Printf("Writing to fd: %d | clientData: %v| len: %d\n", conn.ClientFD, conn.Client, len(p))
-	n, err := syscall.Write(conn.ClientFD, p)
+	written := 0
 
-	if err != nil {
-		if err == syscall.EAGAIN || err == syscall.EWOULDBLOCK {
-			fmt.Println(fmt.Errorf("No data yet, %w", err))
-			return 0, nil
+	for written < len(p) {
+		n, err := syscall.Write(conn.ClientFD, p[written:])
+
+		if err != nil {
+			if err == syscall.EAGAIN || err == syscall.EWOULDBLOCK {
+				continue
+			}
+			return -1, err
 		}
-		return -1, err
+
+		written += n
 	}
 
-	return n, nil
+	return written, nil
 }
 
 func (conn *TcpConnection) Close() error {

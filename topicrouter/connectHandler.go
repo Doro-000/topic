@@ -12,8 +12,9 @@ import (
 func ConnectHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	connPacket := packet.(*mqtt.MqttConnect)
 	sessionStore := handlerInput.sessionStore
+	clientData := connection.GetClientData()
 
-	currentSession := handlerInput.sessionStore.Get(connPacket.ClientID)
+	currentSession := handlerInput.sessionStore.Get(clientData.TransportId)
 	cleanSession := connPacket.MqttConnFlags.CleanSession
 
 	if cleanSession {
@@ -36,7 +37,6 @@ func ConnectHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 		}
 	}
 
-	clientData := connection.GetClientData()
 	clientData.Connected = true
 	clientData.LastPacketRecieved = time.Now()
 

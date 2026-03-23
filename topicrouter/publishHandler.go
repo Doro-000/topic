@@ -11,6 +11,7 @@ import (
 
 func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	pubPacket := packet.(*mqtt.MqttPublish)
+	currentClient := connection.GetClientData()
 
 	// TODO: only save on appropriate qos level
 	if pubPacket.Retain {
@@ -25,7 +26,16 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 
 	var encodedPacket bytes.Buffer
 	marshaller := mqtt.NewMarshall(&encodedPacket)
-	pubPacket.Marshall(marshaller)
+	responsePacketHeader, err := mqtt.NewMqttHeader(mqtt.PUBLISH, false, mqtt.AT_LEAST_ONCE, false)
+	if err != nil {
+		return err
+	}
+
+	responsePacket := packetFactory(*responsePacketHeader).(*mqtt.MqttPublish)
+	responsePacket.TopicName = pubPacket.TopicName
+	responsePacket.Payload = pubPacket.Payload
+
+	responsePacket.Marshall(marshaller)
 
 	// find the subscription for each active session
 	// TODO: we should have Get By topic, or use the topic store to resolve all subscriptionss ?
@@ -34,6 +44,10 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 			continue
 		}
 		clientData := client.Connection.GetClientData()
+
+		if clientData.TransportId == currentClient.TransportId {
+			continue
+		}
 
 		if clientData.Connected == false {
 			continue

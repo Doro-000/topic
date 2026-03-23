@@ -47,6 +47,7 @@ func main() {
 			return err
 		}
 
+		logger.Info(fmt.Sprintf("Accepted Connection: %s | proto: %d", clientData.TransportId, clientData.ConnectionType))
 		connection := topicNetworking.NewTcpConnection(clientFD, clientData)
 
 		// Disconnect client if they don't send anything for 30sec
@@ -83,11 +84,12 @@ func main() {
 
 				// Peek data and get packet
 				mqttPacket, err := topicRouter.Peek(connection)
-				logger.Info(fmt.Sprintf("recieved packet %v", mqttPacket))
 
 				if err != nil {
 					return err
 				}
+
+				logger.Info(fmt.Sprintf("recieved packet %v", mqttPacket.GetType()))
 
 				signalClientConnected()
 				err = router.RespondTo(mqttPacket, connection)

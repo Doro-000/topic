@@ -37,6 +37,10 @@ func NewTopicRouter(ctx context.Context, sessionStore topicStore.SessionStore, t
 			mqtt.DISCONNECT: DisconnectHandler,
 			mqtt.SUBSCRIBE:  SubscribeHandler,
 			mqtt.PUBLISH:    PublishHandler,
+			mqtt.PUBACK: func(mqtt.GenericPacket, topicNetworking.GenericConnection, MqttHandlerInput) error {
+				fmt.Print("Hooray!")
+				return nil
+			},
 		},
 	}
 }

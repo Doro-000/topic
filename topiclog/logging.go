@@ -36,7 +36,7 @@ func NewTopicLogger(src string, lvlFilter LevelFilter) *TopicLogger {
 
 func (l *TopicLogger) Info(msg string) {
 	if l.levelfilter.Info {
-		now := time.Now()
+		now := time.Now().Format(time.Kitchen)
 		// TODO: standardize logging colors
 		out := fmt.Sprintf("\033[94mINFO\033[0m | %v | %s | %s", now, l.source, msg)
 
@@ -47,7 +47,7 @@ func (l *TopicLogger) Info(msg string) {
 
 func (l *TopicLogger) Error(msg string, err error) {
 	if l.levelfilter.Err {
-		now := time.Now()
+		now := time.Now().Format(time.Kitchen)
 		// TODO: standardize logging colors
 		out := fmt.Sprintf("\033[91mERROR\033[0m | %v | %s | %s", now, l.source, msg)
 

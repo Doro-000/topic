@@ -1,6 +1,8 @@
 package topicstore
 
-import topicNetworking "github.com/Doro-000/topic/topicnetworking"
+import (
+	topicNetworking "github.com/Doro-000/topic/topicnetworking"
+)
 
 type basicStore struct {
 	store map[string]*Session
@@ -30,19 +32,19 @@ func (basicStore *basicStore) InitSession(connection topicNetworking.GenericConn
 	return &newSession, nil
 }
 
-func (basicStore *basicStore) Get(clientId string) *Session {
-	return basicStore.store[clientId]
+func (basicStore *basicStore) Get(transportId string) *Session {
+	return basicStore.store[transportId]
 }
 
-func (basicStore *basicStore) Delete(clientId string) error {
-	delete(basicStore.store, clientId)
+func (basicStore *basicStore) Delete(transportId string) error {
+	delete(basicStore.store, transportId)
 	return nil
 }
 
 func (basicStore *basicStore) GetAll() []Session {
-	res := make([]Session, len(basicStore.store))
-	for clientId := range basicStore.store {
-		res = append(res, *basicStore.store[clientId])
+	res := make([]Session, 0, len(basicStore.store))
+	for _, session := range basicStore.store {
+		res = append(res, *session)
 	}
 	return res
 }
