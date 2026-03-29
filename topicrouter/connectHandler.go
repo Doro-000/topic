@@ -5,6 +5,7 @@ import (
 	"time"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
+	"github.com/Doro-000/topic/topicdatastore"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
@@ -14,26 +15,34 @@ func ConnectHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 	sessionStore := handlerInput.sessionStore
 	clientData := connection.GetClientData()
 
+	// Retrive old session
+	oldSession := sessionStore.GetPersistedSessionForClient(connPacket.ClientID)
+
 	currentSession := handlerInput.sessionStore.Get(clientData.TransportId)
 	cleanSession := connPacket.MqttConnFlags.CleanSession
 
 	if cleanSession {
-		if currentSession != nil {
-			sessionStore.Delete(connPacket.ClientID)
+		if oldSession != nil {
+			sessionStore.RemoveOldSessionForClient(connPacket.ClientID)
 		}
 
-		sessionStore.InitSession(connection, connPacket.ClientID, connPacket.WillTopic, connPacket.WillMessage, []string{}, false)
+		sessionStore.InitSession(topicdatastore.Session{
+			ClientId: connPacket.ClientID, WillTopic: connPacket.WillTopic, WillMessage: connPacket.WillMessage, Subscriptions: []string{}, KeepSession: false, Connection: connection,
+		})
 	} else {
-		if currentSession != nil {
+		if oldSession != nil {
 			if connPacket.HasWillFlag {
-				currentSession.WillMessage = connPacket.WillMessage
-				currentSession.WillTopic = connPacket.WillTopic
+				oldSession.WillMessage = connPacket.WillMessage
+				oldSession.WillTopic = connPacket.WillTopic
 			} else {
-				currentSession.WillMessage = ""
-				currentSession.WillTopic = ""
+				oldSession.WillMessage = ""
+				oldSession.WillTopic = ""
 			}
+			sessionStore.RestoreSession(connection, oldSession)
 		} else {
-			sessionStore.InitSession(connection, connPacket.ClientID, connPacket.WillTopic, connPacket.WillMessage, []string{}, true)
+			sessionStore.InitSession(topicdatastore.Session{
+				ClientId: connPacket.ClientID, WillTopic: connPacket.WillTopic, WillMessage: connPacket.WillMessage, Subscriptions: []string{}, KeepSession: true, Connection: connection,
+			})
 		}
 	}
 

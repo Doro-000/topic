@@ -14,9 +14,15 @@ func DisconnectHandler(packet mqtt.GenericPacket, connection topicNetworking.Gen
 	session := handlerInput.sessionStore.Get(clientData.TransportId)
 
 	err := connection.Close()
-	session.Connection = nil
 	clientData.DisconnectChan <- true
 	clientData.KeepAliveTimer.Stop()
+
+	if session.KeepSession {
+		handlerInput.sessionStore.PersistSession(session)
+	} else {
+		handlerInput.sessionStore.Delete(clientData.TransportId)
+		handlerInput.topicStore.RemoveSubscription(clientData.TransportId, session.Subscriptions...)
+	}
 
 	return err
 }

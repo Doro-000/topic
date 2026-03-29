@@ -2,11 +2,10 @@ package topicrouter
 
 import (
 	"bytes"
-	"slices"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
+	topicDataStore "github.com/Doro-000/topic/topicdatastore"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
-	topicStore "github.com/Doro-000/topic/topicstore"
 )
 
 func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
@@ -15,13 +14,12 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 
 	// TODO: only save on appropriate qos level
 	if pubPacket.Retain {
-		message := topicStore.Message{
-			Qos:    pubPacket.Qos,
-			Retain: pubPacket.Retain,
-			Data:   pubPacket.Payload,
+		message := topicDataStore.Message{
+			Qos:  pubPacket.Qos,
+			Data: pubPacket.Payload,
 		}
 
-		handlerInput.topicStore.AddMessages(pubPacket.TopicName, []topicStore.Message{message})
+		handlerInput.messageStore.AddMessages(pubPacket.TopicName, message)
 	}
 
 	var encodedPacket bytes.Buffer
@@ -37,27 +35,32 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 
 	responsePacket.Marshall(marshaller)
 
-	// find the subscription for each active session
-	// TODO: we should have Get By topic, or use the topic store to resolve all subscriptionss ?
-	for _, client := range handlerInput.sessionStore.GetAll() {
-		if client.Connection == nil {
+	clientsSubscribedToTopic := handlerInput.topicStore.FindClientsSubedToTopic(pubPacket.TopicName)
+
+	for _, client := range clientsSubscribedToTopic {
+		clientSession := handlerInput.sessionStore.Get(client)
+
+		if clientSession == nil {
 			continue
 		}
-		clientData := client.Connection.GetClientData()
+
+		if clientSession.Connection == nil {
+			continue
+		}
+
+		clientData := clientSession.Connection.GetClientData()
+		if clientData.Connected == false {
+			continue
+		}
 
 		if clientData.TransportId == currentClient.TransportId {
 			continue
 		}
 
-		if clientData.Connected == false {
-			continue
-		}
+		go func() {
+			clientSession.Connection.Write(encodedPacket.Bytes())
+		}()
 
-		if slices.Contains(client.Subscriptions, pubPacket.TopicName) {
-			go func() {
-				client.Connection.Write(encodedPacket.Bytes())
-			}()
-		}
 	}
 
 	return nil

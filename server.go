@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	topicDataStore "github.com/Doro-000/topic/topicdatastore"
 	topicEventLoop "github.com/Doro-000/topic/topiceventing"
 	topicLog "github.com/Doro-000/topic/topiclog"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 	topicRouter "github.com/Doro-000/topic/topicrouter"
-	topicStore "github.com/Doro-000/topic/topicstore"
 )
 
 func main() {
@@ -23,14 +23,17 @@ func main() {
 	eventLoop := topicEventLoop.NewEventLoop(false, 10)
 
 	// create session store
-	sessionStore := topicStore.InitSessionStore()
+	sessionStore := topicDataStore.NewSessionStore()
+
+	// Create message store
+	messageStore := topicDataStore.NewMessageStore()
 
 	// create topic store
-	topicStore := topicStore.InitTopicStore()
+	topicStore := topicDataStore.NewTopicStore()
 
 	mainContext := context.Background()
 	// create router
-	router := topicRouter.NewTopicRouter(mainContext, sessionStore, topicStore)
+	router := topicRouter.NewTopicRouter(mainContext, sessionStore, topicStore, messageStore)
 
 	// open a socket for TCP connections
 	tcpListener, err := topicNetworking.NewTcpListener()

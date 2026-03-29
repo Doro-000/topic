@@ -6,31 +6,36 @@ import (
 	"io"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
+	topicDataStore "github.com/Doro-000/topic/topicdatastore"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
-	topicStore "github.com/Doro-000/topic/topicstore"
 )
 
 type TopicRouter struct {
-	sessionStore    topicStore.SessionStore
-	topicStore      topicStore.TopicStore
+	topicStore      *topicDataStore.TopicStore
+	sessionStore    *topicDataStore.SessionStore
+	messageStore    *topicDataStore.MessageStore
 	handlerRegistry MqttPacketHandlerRegistry
 	mainContext     context.Context
 }
 
 type MqttHandlerInput struct {
-	sessionStore topicStore.SessionStore
-	topicStore   topicStore.TopicStore
+	topicStore   *topicDataStore.TopicStore
+	sessionStore *topicDataStore.SessionStore
+	messageStore *topicDataStore.MessageStore
 }
 
 // TODO: return specific error type
 type MqttHandlerFunc = func(mqtt.GenericPacket, topicNetworking.GenericConnection, MqttHandlerInput) error
 type MqttPacketHandlerRegistry = map[mqtt.MQTTControlPacketType]MqttHandlerFunc
 
-func NewTopicRouter(ctx context.Context, sessionStore topicStore.SessionStore, topicStore topicStore.TopicStore) *TopicRouter {
+func NewTopicRouter(ctx context.Context, sessionStore *topicDataStore.SessionStore, topicStore *topicDataStore.TopicStore, messageStore *topicDataStore.MessageStore) *TopicRouter {
 	return &TopicRouter{
+		mainContext: ctx,
+
 		sessionStore: sessionStore,
 		topicStore:   topicStore,
-		mainContext:  ctx,
+		messageStore: messageStore,
+
 		handlerRegistry: MqttPacketHandlerRegistry{
 			mqtt.CONNECT:    ConnectHandler,
 			mqtt.PINGREQ:    PingHandler,
@@ -57,6 +62,7 @@ func (router *TopicRouter) RespondTo(packet mqtt.GenericPacket, connection topic
 
 		err := handler(packet, connection, MqttHandlerInput{
 			sessionStore: router.sessionStore,
+			messageStore: router.messageStore,
 			topicStore:   router.topicStore,
 		})
 

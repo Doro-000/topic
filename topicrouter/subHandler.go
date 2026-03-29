@@ -16,6 +16,7 @@ func SubscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.Gene
 	// topic: qosLevel
 	for topic := range subPacket.Payload {
 		session.Subscriptions = append(session.Subscriptions, topic)
+		handlerInput.topicStore.AddSubscription(topic, clientData.TransportId)
 	}
 
 	// respond with subAck
