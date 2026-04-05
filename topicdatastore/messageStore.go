@@ -10,13 +10,18 @@ type Message struct {
 type MessageStore struct {
 	// TODO: [CONFIG] max message per topic
 	store map[string][]Message // topic : message[]
+
+	// QOS 2 messages
+	unackowledgedPacketIds map[uint16]bool // Packet Id set
 }
 
 func NewMessageStore() *MessageStore {
 	store := make(map[string][]Message)
+	unackowledgedPacketIds := make(map[uint16]bool)
 
 	return &MessageStore{
-		store: store,
+		store:                  store,
+		unackowledgedPacketIds: unackowledgedPacketIds,
 	}
 }
 
@@ -40,4 +45,12 @@ func (messageStoreInstance *MessageStore) GetMessages(topicName string) []Messag
 		return messages
 	}
 	return []Message{}
+}
+
+func (messageStoreInstance *MessageStore) AddUnackPacket(packageId uint16) {
+	messageStoreInstance.unackowledgedPacketIds[packageId] = true
+}
+
+func (messageStoreInstance *MessageStore) RemoveUnackPacket(packageId uint16) {
+	delete(messageStoreInstance.unackowledgedPacketIds, packageId)
 }

@@ -9,7 +9,7 @@ import (
 
 var kevent_timeSpec = syscall.NsecToTimespec(EVENT_TIMEOUT_NSEC)
 
-func newDarwinEventLoop(eventSize int) *EventLoop {
+func NewEventLoop(eventSize int) *eventLoop {
 	kernelQueue, err := syscall.Kqueue()
 	if err != nil {
 		panic(err)
@@ -22,7 +22,7 @@ func newDarwinEventLoop(eventSize int) *EventLoop {
 
 	logger.Info("Event loop created")
 
-	return &EventLoop{
+	return &eventLoop{
 		fd:            kernelQueue,
 		maxEventsSize: eventSize,
 		logger:        logger,
@@ -30,7 +30,7 @@ func newDarwinEventLoop(eventSize int) *EventLoop {
 	}
 }
 
-func (ev *EventLoop) Add(fd int, callback Callback) error {
+func (ev *eventLoop) Add(fd int, callback Callback) error {
 	event := syscall.Kevent_t{
 		Ident:  uint64(fd),
 		Filter: syscall.EVFILT_READ,
@@ -43,7 +43,7 @@ func (ev *EventLoop) Add(fd int, callback Callback) error {
 	return err
 }
 
-func (ev *EventLoop) Remove(fd int) error {
+func (ev *eventLoop) Remove(fd int) error {
 	eventToRemove := syscall.Kevent_t{
 		Ident: uint64(fd),
 		Flags: syscall.EV_DELETE,
@@ -55,7 +55,7 @@ func (ev *EventLoop) Remove(fd int) error {
 	return err
 }
 
-func (ev *EventLoop) Wait() error {
+func (ev *eventLoop) Wait() error {
 	events := make([]syscall.Kevent_t, ev.maxEventsSize)
 
 	for {

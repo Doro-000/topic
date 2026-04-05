@@ -19,4 +19,18 @@ var publish_test_cases PacketTestCase = PacketTestCase{
 		packErr:   nil,
 		unpackErr: nil,
 	},
+	"Publish with At Most once": {
+		packet: &Mqtt.MqttPublish{
+			MqttHeader: Mqtt.MqttHeader{
+				Retain:     true,
+				Qos:        Mqtt.AT_MOST_ONCE,
+				Dup:        false,
+				PacketType: Mqtt.PUBLISH,
+			},
+			TopicName: "a/b",
+			Payload:   []byte("hello world"),
+		},
+		packErr:   nil,
+		unpackErr: nil,
+	},
 }

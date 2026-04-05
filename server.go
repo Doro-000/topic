@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"syscall"
 	"time"
 
 	topicDataStore "github.com/Doro-000/topic/topicdatastore"
@@ -20,7 +21,7 @@ func main() {
 	})
 
 	// create an event loop
-	eventLoop := topicEventLoop.NewEventLoop(false, 10)
+	eventLoop := topicEventLoop.NewEventLoop(10)
 
 	// create session store
 	sessionStore := topicDataStore.NewSessionStore()
@@ -130,6 +131,7 @@ func main() {
 	}
 
 	err = eventLoop.Wait()
+	syscall.Close(tcpListener.SockFD)
 
 	if err != nil {
 		panic(err)

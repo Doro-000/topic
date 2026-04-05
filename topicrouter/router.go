@@ -46,6 +46,7 @@ func NewTopicRouter(ctx context.Context, sessionStore *topicDataStore.SessionSto
 				fmt.Print("Hooray!")
 				return nil
 			},
+			mqtt.PUBREL: pubRelHandler,
 		},
 	}
 }

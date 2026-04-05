@@ -14,7 +14,11 @@ func (packet *MqttPublish) Marshall(marshaller *Marshall) error {
 	packet.MqttHeader.Marshall(marshaller)
 
 	topicNameLen := (2 + len(packet.TopicName))
-	packetIDlen := 2
+	packetIDlen := 0
+	if packet.Qos > AT_MOST_ONCE {
+		packetIDlen = 2
+	}
+
 	remainingLength := EncodeRemainingLength(packetIDlen + topicNameLen + len(packet.Payload))
 	marshaller.WriteBytes(remainingLength)
 
