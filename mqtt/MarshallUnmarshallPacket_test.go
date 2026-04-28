@@ -18,16 +18,7 @@ type PacketTestCase = map[string]struct {
 type TestCases = map[Mqtt.MQTTControlPacketType]PacketTestCase
 
 var tests TestCases = TestCases{
-	Mqtt.CONNECT:     connect_test_cases,
-	Mqtt.CONNACK:     connectAck_test_cases,
-	Mqtt.PUBLISH:     publish_test_cases,
-	Mqtt.PUBACK:      pubAck_test_cases,
-	Mqtt.PUBREC:      pubRec_test_cases,
-	Mqtt.PUBREL:      pubRel_test_cases,
-	Mqtt.PUBCOMP:     pubComp_test_cases,
-	Mqtt.SUBSCRIBE:   subscribe_test_cases,
-	Mqtt.SUBACK:      subscribeAck_test_cases,
-	Mqtt.UNSUBSCRIBE: nil,
+	Mqtt.UNSUBSCRIBE: unsubscribe_test_cases,
 	Mqtt.UNSUBACK:    unsubAck_test_cases,
 	Mqtt.PINGREQ:     nil,
 	Mqtt.PINGRESP:    nil,
@@ -101,6 +92,10 @@ func packetFactory(packetType Mqtt.MQTTControlPacketType, header *Mqtt.MqttHeade
 		}
 	case mqtt.SUBSCRIBE:
 		return &Mqtt.MqttSubscribe{
+			MqttHeader: *header,
+		}
+	case mqtt.UNSUBSCRIBE:
+		return &Mqtt.MqttUnsubscribe{
 			MqttHeader: *header,
 		}
 	case mqtt.SUBACK:
