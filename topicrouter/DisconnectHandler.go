@@ -7,7 +7,7 @@ import (
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
-func DisconnectHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+func disconnectHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	fmt.Printf("Disconnecting client: %s\n", connection.(*topicNetworking.TcpConnection).Client.TransportId)
 
 	clientData := connection.GetClientData()

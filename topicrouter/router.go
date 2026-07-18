@@ -1,6 +1,7 @@
 package topicrouter
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,7 +29,12 @@ type MqttHandlerInput struct {
 type MqttHandlerFunc = func(mqtt.GenericPacket, topicNetworking.GenericConnection, MqttHandlerInput) error
 type MqttPacketHandlerRegistry = map[mqtt.MQTTControlPacketType]MqttHandlerFunc
 
-func NewTopicRouter(ctx context.Context, sessionStore *topicDataStore.SessionStore, topicStore *topicDataStore.TopicStore, messageStore *topicDataStore.MessageStore) *TopicRouter {
+func NewTopicRouter(ctx context.Context) *TopicRouter {
+	// Storage
+	sessionStore := topicDataStore.NewSessionStore()
+	messageStore := topicDataStore.NewMessageStore()
+	topicStore := topicDataStore.NewTopicStore()
+
 	return &TopicRouter{
 		mainContext: ctx,
 
@@ -37,17 +43,14 @@ func NewTopicRouter(ctx context.Context, sessionStore *topicDataStore.SessionSto
 		messageStore: messageStore,
 
 		handlerRegistry: MqttPacketHandlerRegistry{
-			mqtt.CONNECT:    ConnectHandler,
-			mqtt.PINGREQ:    PingHandler,
-			mqtt.DISCONNECT: DisconnectHandler,
-			mqtt.SUBSCRIBE:  SubscribeHandler,
-			mqtt.PUBLISH:    PublishHandler,
-			mqtt.PUBACK: func(mqtt.GenericPacket, topicNetworking.GenericConnection, MqttHandlerInput) error {
-				fmt.Print("Hooray!")
-				return nil
-			},
+			mqtt.CONNECT:     connectHandler,
+			mqtt.PINGREQ:     pingHandler,
+			mqtt.DISCONNECT:  disconnectHandler,
+			mqtt.SUBSCRIBE:   subscribeHandler,
+			mqtt.PUBLISH:     publishHandler,
+			mqtt.PUBACK:      pubAckHandler,
 			mqtt.PUBREL:      pubRelHandler,
-			mqtt.UNSUBSCRIBE: UnsubscribeHandler,
+			mqtt.UNSUBSCRIBE: unsubscribeHandler,
 		},
 	}
 }
@@ -84,6 +87,58 @@ func (router *TopicRouter) RespondTo(packet mqtt.GenericPacket, connection topic
 	return nil
 }
 
+func (router *TopicRouter) ClientFuneral(closedConnection topicNetworking.TcpConnection) error {
+	session := router.sessionStore.Get(closedConnection.Client.TransportId)
+
+	if session.WillTopic == "" || session.WillMessage == "" {
+		return nil
+	}
+
+	// publish will message
+	var encodedPacket bytes.Buffer
+	marshaller := mqtt.NewMarshall(&encodedPacket)
+	responsePacketHeader, err := mqtt.NewMqttHeader(mqtt.PUBLISH, false, mqtt.AT_MOST_ONCE, false)
+	if err != nil {
+		return err
+	}
+
+	responsePacket := mqtt.PacketFactory(*responsePacketHeader).(*mqtt.MqttPublish)
+	responsePacket.TopicName = session.WillTopic
+	responsePacket.Payload = []byte(session.WillMessage)
+
+	responsePacket.Marshall(marshaller)
+
+	clientsSubscribedToTopic := router.topicStore.FindClientsSubedToTopic(session.WillTopic)
+
+	clientsToSendTo := make([]topicNetworking.GenericConnection, 0)
+	for _, client := range clientsSubscribedToTopic {
+		clientSession := router.sessionStore.Get(client)
+
+		if clientSession == nil || clientSession.Connection == nil {
+			continue
+		}
+
+		clientData := clientSession.Connection.GetClientData()
+		if clientData.Connected == false {
+			continue
+		}
+
+		if clientData.TransportId == closedConnection.Client.TransportId {
+			continue
+		}
+
+		clientsToSendTo = append(clientsToSendTo, clientSession.Connection)
+	}
+
+	for _, conn := range clientsToSendTo {
+		go func() {
+			conn.Write(encodedPacket.Bytes())
+		}()
+	}
+
+	return nil
+}
+
 func Peek(connection topicNetworking.GenericConnection) (mqtt.GenericPacket, error) {
 	header, err := connection.ReadByte()
 	if err != nil {
@@ -102,54 +157,11 @@ func Peek(connection topicNetworking.GenericConnection) (mqtt.GenericPacket, err
 	limitedReader := io.LimitReader(connection, int64(remainingLen))
 	unmarshaller := mqtt.NewUnmarshall(limitedReader)
 
-	packet := packetFactory(*unmarshalledHeader)
+	packet := mqtt.PacketFactory(*unmarshalledHeader)
 	err = packet.Unmarshall(unmarshaller)
 	if err != nil {
 		return nil, err
 	}
 
 	return packet, nil
-}
-
-func packetFactory(header mqtt.MqttHeader) mqtt.GenericPacket {
-	switch header.PacketType {
-	case mqtt.CONNECT:
-		return &mqtt.MqttConnect{
-			MqttHeader: header,
-		}
-	case mqtt.CONNACK:
-		return &mqtt.MqttConnectAck{
-			MqttHeader: header,
-		}
-	case mqtt.PUBLISH:
-		return &mqtt.MqttPublish{
-			MqttHeader: header,
-		}
-	case mqtt.PUBACK, mqtt.PUBREC, mqtt.PUBREL, mqtt.PUBCOMP, mqtt.UNSUBACK:
-		return &mqtt.MqttSimplePacket{
-			MqttHeader: header,
-		}
-	case mqtt.SUBSCRIBE:
-		return &mqtt.MqttSubscribe{
-			MqttHeader: header,
-		}
-	case mqtt.SUBACK:
-		return &mqtt.MqttSubAck{
-			MqttHeader: header,
-		}
-	case mqtt.UNSUBSCRIBE:
-		return &mqtt.MqttUnsubscribe{
-			MqttHeader: header,
-		}
-	case mqtt.DISCONNECT, mqtt.PINGREQ, mqtt.PINGRESP:
-		return &mqtt.MqttHeaderOnlyPacket{
-			MqttHeader: header,
-		}
-
-	case mqtt.RESERVED_PACKET_TYPE, mqtt.RESERVED_PACKET_TYPE_2:
-	default:
-		return nil
-	}
-
-	return nil
 }

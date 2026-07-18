@@ -55,7 +55,7 @@ func NewTcpListener() (*TcpListener, error) {
 	}
 
 	err = syscall.Bind(sockFd, &syscall.SockaddrInet4{
-		Port: 1883,
+		Port: PORT,
 		Addr: [4]byte{0, 0, 0, 0},
 	})
 	if err != nil {

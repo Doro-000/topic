@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/signal"
 	"syscall"
 	"time"
 
-	topicDataStore "github.com/Doro-000/topic/topicdatastore"
 	topicEventLoop "github.com/Doro-000/topic/topiceventing"
 	topicLog "github.com/Doro-000/topic/topiclog"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
@@ -20,21 +20,10 @@ func main() {
 		Err:  true,
 	})
 
-	// create an event loop
-	eventLoop := topicEventLoop.NewEventLoop(10)
+	mainContext, mainCancel := context.WithCancel(context.Background())
 
-	// create session store
-	sessionStore := topicDataStore.NewSessionStore()
-
-	// Create message store
-	messageStore := topicDataStore.NewMessageStore()
-
-	// create topic store
-	topicStore := topicDataStore.NewTopicStore()
-
-	mainContext := context.Background()
 	// create router
-	router := topicRouter.NewTopicRouter(mainContext, sessionStore, topicStore, messageStore)
+	router := topicRouter.NewTopicRouter(mainContext)
 
 	// open a socket for TCP connections
 	tcpListener, err := topicNetworking.NewTcpListener()
@@ -44,6 +33,10 @@ func main() {
 		return
 	}
 
+	// create an event loop
+	eventLoop := topicEventLoop.NewEventLoop(10)
+
+	// Client Handler
 	newClientHandler := func() error {
 		clientFD, clientData, err := tcpListener.Accept()
 
@@ -57,24 +50,7 @@ func main() {
 		// Disconnect client if they don't send anything for 30sec
 		deadlineContext, signalClientConnected := context.WithTimeout(mainContext, 30*time.Second)
 
-		go func() {
-			<-deadlineContext.Done()
-			switch deadlineContext.Err() {
-			// disconnect client timedout
-			case context.DeadlineExceeded:
-				// close connection
-				connection.Close()
-
-				// remove handler
-				eventLoop.Remove(connection.ClientFD)
-
-				logger.Info(fmt.Sprintf("Client %s disconnected!", clientData.TransportId))
-				logger.Error("Reason: ", errors.New("Timed out before sending packet"))
-			case context.Canceled:
-				// client connected, cancel disconnection and respond to client
-				// logger.Error("stopped: ", context.Cause(deadlineContext))
-			}
-		}()
+		go inactiveClientDisconnect(*connection, eventLoop, *logger, deadlineContext, signalClientConnected)
 
 		// Register handler for this client
 		err = eventLoop.Add(clientFD, topicEventLoop.Callback{
@@ -109,6 +85,14 @@ func main() {
 					// gracefull shutdown
 					connection.Close()
 					eventLoop.Remove(connection.ClientFD)
+
+					// publish will message
+					err := router.ClientFuneral(*connection)
+
+					if err != nil {
+						logger.Error("Failed to publish will message: ", err)
+					}
+
 					logger.Info(fmt.Sprintf("Client %s disconnected!", clientData.TransportId))
 					logger.Error("Reason: ", err)
 				}
@@ -130,10 +114,39 @@ func main() {
 		return
 	}
 
-	err = eventLoop.Wait()
+	ctx, stop := signal.NotifyContext(mainContext, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		err = eventLoop.Wait()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	<-ctx.Done()
+
+	fmt.Println("Shutting down server...")
+	mainCancel()
+
 	syscall.Close(tcpListener.SockFD)
 
-	if err != nil {
-		panic(err)
+}
+
+func inactiveClientDisconnect(connection topicNetworking.TcpConnection, eventLoop topicEventLoop.EventLoop, logger topicLog.TopicLogger, deadlineContext context.Context, cancelFunc context.CancelFunc) {
+	<-deadlineContext.Done()
+	switch deadlineContext.Err() {
+	case context.DeadlineExceeded:
+		// close connection
+		connection.Close()
+
+		// remove handler
+		eventLoop.Remove(connection.ClientFD)
+
+		logger.Info(fmt.Sprintf("Client %s disconnected!", connection.Client.TransportId))
+		logger.Error("Reason: ", errors.New("Timed out before sending packet"))
+	case context.Canceled:
+		logger.Info("here")
+		cancelFunc()
 	}
 }

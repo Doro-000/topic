@@ -2,13 +2,14 @@ package topicrouter
 
 import (
 	"bytes"
+	"fmt"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
 	topicDataStore "github.com/Doro-000/topic/topicdatastore"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
-func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+func publishHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	pubPacket := packet.(*mqtt.MqttPublish)
 	currentClient := connection.GetClientData()
 
@@ -29,7 +30,7 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 		return err
 	}
 
-	responsePacket := packetFactory(*responsePacketHeader).(*mqtt.MqttPublish)
+	responsePacket := mqtt.PacketFactory(*responsePacketHeader).(*mqtt.MqttPublish)
 	responsePacket.TopicName = pubPacket.TopicName
 	responsePacket.Payload = pubPacket.Payload
 
@@ -70,7 +71,7 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 			return err
 		}
 
-		pubAckPacket := packetFactory(*pubAckHeader).(*mqtt.MqttSimplePacket)
+		pubAckPacket := mqtt.PacketFactory(*pubAckHeader).(*mqtt.MqttSimplePacket)
 		pubAckPacket.PacketIdentifier = pubPacket.PacketIdentifier
 
 		var encodedPacket bytes.Buffer
@@ -93,7 +94,7 @@ func PublishHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 			return err
 		}
 
-		pubRecPacket := packetFactory(*pubRecHeader).(*mqtt.MqttSimplePacket)
+		pubRecPacket := mqtt.PacketFactory(*pubRecHeader).(*mqtt.MqttSimplePacket)
 		pubRecPacket.PacketIdentifier = pubPacket.PacketIdentifier
 
 		var encodedPacket bytes.Buffer
@@ -121,7 +122,7 @@ func pubRelHandler(packet mqtt.GenericPacket, connection topicNetworking.Generic
 		return err
 	}
 
-	pubCompPacket := packetFactory(*pubCompHeader).(*mqtt.MqttSimplePacket)
+	pubCompPacket := mqtt.PacketFactory(*pubCompHeader).(*mqtt.MqttSimplePacket)
 	pubCompPacket.PacketIdentifier = pubRelPacket.PacketIdentifier
 
 	var encodedPacket bytes.Buffer
@@ -136,4 +137,9 @@ func pubRelHandler(packet mqtt.GenericPacket, connection topicNetworking.Generic
 
 	return nil
 
+}
+
+func pubAckHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+	fmt.Print("Hooray!")
+	return nil
 }

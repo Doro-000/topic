@@ -8,7 +8,7 @@ import (
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
-func UnsubscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+func unsubscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	unsubPacket := packet.(*mqtt.MqttUnsubscribe)
 
 	clientData := connection.GetClientData()
@@ -28,7 +28,7 @@ func UnsubscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.Ge
 		return err
 	}
 
-	unsubAckPacket := packetFactory(*unsubAckHeader).(*mqtt.MqttSimplePacket)
+	unsubAckPacket := mqtt.PacketFactory(*unsubAckHeader).(*mqtt.MqttSimplePacket)
 	unsubAckPacket.PacketIdentifier = unsubPacket.PacketIdentifier
 
 	var encodedPacket bytes.Buffer

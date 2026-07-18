@@ -5,7 +5,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/Doro-000/topic/mqtt"
 	Mqtt "github.com/Doro-000/topic/mqtt"
 	"github.com/google/go-cmp/cmp"
 )
@@ -18,6 +17,15 @@ type PacketTestCase = map[string]struct {
 type TestCases = map[Mqtt.MQTTControlPacketType]PacketTestCase
 
 var tests TestCases = TestCases{
+	Mqtt.CONNECT:     connect_test_cases,
+	Mqtt.CONNACK:     connectAck_test_cases,
+	Mqtt.PUBLISH:     publish_test_cases,
+	Mqtt.PUBACK:      pubAck_test_cases,
+	Mqtt.PUBREC:      pubRec_test_cases,
+	Mqtt.PUBREL:      pubRel_test_cases,
+	Mqtt.PUBCOMP:     pubComp_test_cases,
+	Mqtt.SUBSCRIBE:   subscribe_test_cases,
+	Mqtt.SUBACK:      subscribeAck_test_cases,
 	Mqtt.UNSUBSCRIBE: unsubscribe_test_cases,
 	Mqtt.UNSUBACK:    unsubAck_test_cases,
 	Mqtt.PINGREQ:     nil,
@@ -53,7 +61,7 @@ func Test_RoundTrip(t *testing.T) {
 						t.Fatalf("%s", err.Error())
 					}
 
-					decodedPacket := packetFactory(packetType, decodedHeader)
+					decodedPacket := Mqtt.PacketFactory(*decodedHeader)
 
 					remainingLen, err := Mqtt.DecodeRemainingLen(&encodedPacket)
 					if err != nil {
@@ -73,40 +81,5 @@ func Test_RoundTrip(t *testing.T) {
 				})
 			}
 		})
-	}
-}
-
-func packetFactory(packetType Mqtt.MQTTControlPacketType, header *Mqtt.MqttHeader) Mqtt.GenericPacket {
-	switch packetType {
-	case Mqtt.CONNECT:
-		return &Mqtt.MqttConnect{
-			MqttHeader: *header,
-		}
-	case Mqtt.CONNACK:
-		return &Mqtt.MqttConnectAck{
-			MqttHeader: *header,
-		}
-	case Mqtt.PUBLISH:
-		return &Mqtt.MqttPublish{
-			MqttHeader: *header,
-		}
-	case mqtt.SUBSCRIBE:
-		return &Mqtt.MqttSubscribe{
-			MqttHeader: *header,
-		}
-	case mqtt.UNSUBSCRIBE:
-		return &Mqtt.MqttUnsubscribe{
-			MqttHeader: *header,
-		}
-	case mqtt.SUBACK:
-		return &Mqtt.MqttSubAck{
-			MqttHeader: *header,
-		}
-	case Mqtt.PUBACK, Mqtt.PUBREC, Mqtt.PUBREL, Mqtt.PUBCOMP, Mqtt.UNSUBACK:
-		return &Mqtt.MqttSimplePacket{
-			MqttHeader: *header,
-		}
-	default:
-		return nil
 	}
 }

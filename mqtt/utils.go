@@ -51,3 +51,46 @@ func EncodeRemainingLength(len int) (encodedBytes []byte) {
 	}
 	return
 }
+
+func PacketFactory(header MqttHeader) GenericPacket {
+	switch header.PacketType {
+	case CONNECT:
+		return &MqttConnect{
+			MqttHeader: header,
+		}
+	case CONNACK:
+		return &MqttConnectAck{
+			MqttHeader: header,
+		}
+	case PUBLISH:
+		return &MqttPublish{
+			MqttHeader: header,
+		}
+	case PUBACK, PUBREC, PUBREL, PUBCOMP, UNSUBACK:
+		return &MqttSimplePacket{
+			MqttHeader: header,
+		}
+	case SUBSCRIBE:
+		return &MqttSubscribe{
+			MqttHeader: header,
+		}
+	case SUBACK:
+		return &MqttSubAck{
+			MqttHeader: header,
+		}
+	case UNSUBSCRIBE:
+		return &MqttUnsubscribe{
+			MqttHeader: header,
+		}
+	case DISCONNECT, PINGREQ, PINGRESP:
+		return &MqttHeaderOnlyPacket{
+			MqttHeader: header,
+		}
+
+	case RESERVED_PACKET_TYPE, RESERVED_PACKET_TYPE_2:
+	default:
+		return nil
+	}
+
+	return nil
+}

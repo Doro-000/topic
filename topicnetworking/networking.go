@@ -16,6 +16,8 @@ const (
 // If the client doesn't send a CONNECT packet within 30 seconds, we disconnect them
 const DEFAULT_CLIENT_TIMEOUT = 30 * time.Second // 30 seconds
 
+const PORT = 1883
+
 type TcpListener struct {
 	SockFD int
 }

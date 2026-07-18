@@ -10,7 +10,7 @@ import (
 )
 
 // TODO: handle will Retain
-func ConnectHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+func connectHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	connPacket := packet.(*mqtt.MqttConnect)
 	sessionStore := handlerInput.sessionStore
 	clientData := connection.GetClientData()
@@ -78,7 +78,7 @@ func ConnectHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 		return err
 	}
 
-	connAckPacket := packetFactory(*connAckHeader).(*mqtt.MqttConnectAck)
+	connAckPacket := mqtt.PacketFactory(*connAckHeader).(*mqtt.MqttConnectAck)
 	connAckPacket.SessionPresent = (!cleanSession && currentSession != nil)
 	connAckPacket.ReturnCode = mqtt.ACCEPTED
 

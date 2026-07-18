@@ -7,7 +7,7 @@ import (
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
-func SubscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
+func subscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, handlerInput MqttHandlerInput) error {
 	subPacket := packet.(*mqtt.MqttSubscribe)
 
 	clientData := connection.GetClientData()
@@ -25,7 +25,7 @@ func SubscribeHandler(packet mqtt.GenericPacket, connection topicNetworking.Gene
 		return err
 	}
 
-	subAckPacket := packetFactory(*subAckHeader).(*mqtt.MqttSubAck)
+	subAckPacket := mqtt.PacketFactory(*subAckHeader).(*mqtt.MqttSubAck)
 	subAckPacket.PacketIdentifier = subPacket.PacketIdentifier
 	subAckPacket.Payload = make([]mqtt.MqttSubAckCode, len(subPacket.Payload))
 
