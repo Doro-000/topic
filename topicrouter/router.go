@@ -8,6 +8,7 @@ import (
 
 	mqtt "github.com/Doro-000/topic/mqtt"
 	topicDataStore "github.com/Doro-000/topic/topicdatastore"
+	topicLog "github.com/Doro-000/topic/topiclog"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
@@ -17,12 +18,14 @@ type TopicRouter struct {
 	messageStore    *topicDataStore.MessageStore
 	handlerRegistry MqttPacketHandlerRegistry
 	mainContext     context.Context
+	loggerInstance  *topicLog.TopicLogger
 }
 
 type MqttHandlerInput struct {
-	topicStore   *topicDataStore.TopicStore
-	sessionStore *topicDataStore.SessionStore
-	messageStore *topicDataStore.MessageStore
+	topicStore     *topicDataStore.TopicStore
+	sessionStore   *topicDataStore.SessionStore
+	messageStore   *topicDataStore.MessageStore
+	loggerInstance *topicLog.TopicLogger
 }
 
 // TODO: return specific error type
@@ -35,12 +38,19 @@ func NewTopicRouter(ctx context.Context) *TopicRouter {
 	messageStore := topicDataStore.NewMessageStore()
 	topicStore := topicDataStore.NewTopicStore()
 
+	logger := topicLog.NewTopicLogger("ROUTER", topicLog.LevelFilter{
+		Info: true,
+		Err:  true,
+	})
+
 	return &TopicRouter{
 		mainContext: ctx,
 
 		sessionStore: sessionStore,
 		topicStore:   topicStore,
 		messageStore: messageStore,
+
+		loggerInstance: logger,
 
 		handlerRegistry: MqttPacketHandlerRegistry{
 			mqtt.CONNECT:     connectHandler,
@@ -66,9 +76,10 @@ func (router *TopicRouter) RespondTo(packet mqtt.GenericPacket, connection topic
 		}
 
 		err := handler(packet, connection, MqttHandlerInput{
-			sessionStore: router.sessionStore,
-			messageStore: router.messageStore,
-			topicStore:   router.topicStore,
+			sessionStore:   router.sessionStore,
+			messageStore:   router.messageStore,
+			topicStore:     router.topicStore,
+			loggerInstance: router.loggerInstance,
 		})
 
 		if err != nil {
@@ -157,11 +168,26 @@ func Peek(connection topicNetworking.GenericConnection) (mqtt.GenericPacket, err
 	limitedReader := io.LimitReader(connection, int64(remainingLen))
 	unmarshaller := mqtt.NewUnmarshall(limitedReader)
 
-	packet := mqtt.PacketFactory(*unmarshalledHeader)
+	packet, err := mqtt.PacketFactory(unmarshalledHeader.PacketType)
 	err = packet.Unmarshall(unmarshaller)
 	if err != nil {
 		return nil, err
 	}
 
 	return packet, nil
+}
+
+func sendTo(conn topicNetworking.GenericConnection, packet mqtt.GenericPacket) error {
+	packet, err := mqtt.PacketFactory(packet.GetType())
+	if err != nil {
+		return err
+	}
+
+	var encodedPacket bytes.Buffer
+	marshaller := mqtt.NewMarshall(&encodedPacket)
+	packet.Marshall(marshaller)
+
+	_, err = conn.Write(encodedPacket.Bytes())
+
+	return err
 }

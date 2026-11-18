@@ -52,45 +52,52 @@ func EncodeRemainingLength(len int) (encodedBytes []byte) {
 	return
 }
 
-func PacketFactory(header MqttHeader) GenericPacket {
+func PacketFactory(packetType MQTTControlPacketType) (GenericPacket, error) {
+	header, err := NewMqttHeader(packetType, false, AT_MOST_ONCE, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var packet GenericPacket
+
 	switch header.PacketType {
 	case CONNECT:
-		return &MqttConnect{
-			MqttHeader: header,
+		packet = &MqttConnect{
+			MqttHeader: *header,
 		}
 	case CONNACK:
-		return &MqttConnectAck{
-			MqttHeader: header,
+		packet = &MqttConnectAck{
+			MqttHeader: *header,
 		}
 	case PUBLISH:
-		return &MqttPublish{
-			MqttHeader: header,
+		packet = &MqttPublish{
+			MqttHeader: *header,
 		}
 	case PUBACK, PUBREC, PUBREL, PUBCOMP, UNSUBACK:
-		return &MqttSimplePacket{
-			MqttHeader: header,
+		packet = &MqttSimplePacket{
+			MqttHeader: *header,
 		}
 	case SUBSCRIBE:
-		return &MqttSubscribe{
-			MqttHeader: header,
+		packet = &MqttSubscribe{
+			MqttHeader: *header,
 		}
 	case SUBACK:
-		return &MqttSubAck{
-			MqttHeader: header,
+		packet = &MqttSubAck{
+			MqttHeader: *header,
 		}
 	case UNSUBSCRIBE:
-		return &MqttUnsubscribe{
-			MqttHeader: header,
+		packet = &MqttUnsubscribe{
+			MqttHeader: *header,
 		}
 	case DISCONNECT, PINGREQ, PINGRESP:
-		return &MqttHeaderOnlyPacket{
-			MqttHeader: header,
+		packet = &MqttHeaderOnlyPacket{
+			MqttHeader: *header,
 		}
 
 	case RESERVED_PACKET_TYPE, RESERVED_PACKET_TYPE_2:
 	default:
-		return nil
+		return nil, errors.New("Reserved packet types not supported!")
 	}
 
-	return nil
+	return packet, nil
 }

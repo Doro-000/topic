@@ -2,14 +2,12 @@ package topicrouter
 
 import (
 	"bytes"
-	"fmt"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
 	topicNetworking "github.com/Doro-000/topic/topicnetworking"
 )
 
-func pingHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, _ MqttHandlerInput) error {
-	fmt.Print("Responding to ping\n")
+func pingHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericConnection, input MqttHandlerInput) error {
 	pingRespHeader, err := mqtt.NewMqttHeader(mqtt.PINGRESP, false, mqtt.AT_MOST_ONCE, false)
 	if err != nil {
 		return err
@@ -26,5 +24,8 @@ func pingHandler(packet mqtt.GenericPacket, connection topicNetworking.GenericCo
 	if err != nil {
 		return err
 	}
+
+	input.loggerInstance.Info("Responded with PINGRESP")
+
 	return nil
 }

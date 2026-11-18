@@ -51,7 +51,7 @@ func (l *TopicLogger) Error(msg string, err error) {
 		// TODO: standardize logging colors
 		out := fmt.Sprintf("\033[91mERROR\033[0m | %v | %s | %s", now, l.source, msg)
 
-		fmt.Println(out)
-		fmt.Printf("\t\t %s\n", err.Error())
+		fmt.Print(out)
+		fmt.Printf("\t %s\n", err.Error())
 	}
 }

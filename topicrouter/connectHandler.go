@@ -1,7 +1,6 @@
 package topicrouter
 
 import (
-	"bytes"
 	"time"
 
 	mqtt "github.com/Doro-000/topic/mqtt"
@@ -73,23 +72,10 @@ func connectHandler(packet mqtt.GenericPacket, connection topicNetworking.Generi
 	}()
 
 	// RESPOND With ACK
-	connAckHeader, err := mqtt.NewMqttHeader(mqtt.CONNACK, false, mqtt.AT_MOST_ONCE, false)
-	if err != nil {
-		return err
-	}
+	err := sendTo(connection, &mqtt.MqttConnectAck{
+		SessionPresent: (!cleanSession && currentSession != nil),
+		ReturnCode:     mqtt.ACCEPTED,
+	})
 
-	connAckPacket := mqtt.PacketFactory(*connAckHeader).(*mqtt.MqttConnectAck)
-	connAckPacket.SessionPresent = (!cleanSession && currentSession != nil)
-	connAckPacket.ReturnCode = mqtt.ACCEPTED
-
-	var encodedPacket bytes.Buffer
-	marshaller := mqtt.NewMarshall(&encodedPacket)
-	connAckPacket.Marshall(marshaller)
-
-	_, err = connection.Write(encodedPacket.Bytes())
-
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

@@ -48,7 +48,7 @@ func main() {
 		connection := topicNetworking.NewTcpConnection(clientFD, clientData)
 
 		// Disconnect client if they don't send anything for 30sec
-		deadlineContext, signalClientConnected := context.WithTimeout(mainContext, 30*time.Second)
+		deadlineContext, signalClientConnected := context.WithTimeout(mainContext, 10*time.Second)
 
 		go inactiveClientDisconnect(*connection, eventLoop, *logger, deadlineContext, signalClientConnected)
 
@@ -146,7 +146,6 @@ func inactiveClientDisconnect(connection topicNetworking.TcpConnection, eventLoo
 		logger.Info(fmt.Sprintf("Client %s disconnected!", connection.Client.TransportId))
 		logger.Error("Reason: ", errors.New("Timed out before sending packet"))
 	case context.Canceled:
-		logger.Info("here")
 		cancelFunc()
 	}
 }
